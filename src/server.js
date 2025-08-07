@@ -32,9 +32,9 @@ const _ = require('koa-route');
 const bodyParser = require('koa-bodyparser');
 const cors = require('./cors');
 
-// Prevent UnhandledPromiseRejection crash in Node 15, though this shouldn't be necessary
+// Prevent UnhandledPromiseRejection crash in Node 15+
 process.on('unhandledRejection', (reason, promise) => {
-	Zotero.debug('Unhandled rejection: ' + (reason.stack || reason), 1)
+	Zotero.debug('Unhandled rejection: ' + (reason.stack || reason), 1);
 });
 
 require('./zotero');
@@ -46,18 +46,23 @@ const ExportEndpoint = require('./exportEndpoint');
 const ImportEndpoint = require('./importEndpoint');
 
 const app = module.exports = new Koa();
+
 if (config.get('trustProxyHeaders')) {
 	app.proxy = true;
 }
+
+// Middleware for logging
 app.use(function (ctx, next) {
-	var msg = `${ctx.method} ${ctx.url} from ${ctx.request.ip} "${ctx.headers['user-agent']}"`;
+	let msg = `${ctx.method} ${ctx.url} from ${ctx.request.ip} "${ctx.headers['user-agent']}"`;
 	if (ctx.headers.origin) {
 		msg += ` (${ctx.headers.origin})`;
 	}
 	Zotero.debug(msg);
 	return next();
 });
+
 app.use(cors);
+
 app.use(
 	bodyParser({
 		enableTypes: ['text', 'json'],
@@ -65,26 +70,23 @@ app.use(
 		textLimit: '5mb',
 	})
 );
+
+// Routes
 app.use(_.post('/web', WebEndpoint.handle.bind(WebEndpoint)));
 app.use(_.post('/search', SearchEndpoint.handle.bind(SearchEndpoint)));
 app.use(_.post('/export', ExportEndpoint.handle.bind(ExportEndpoint)));
 app.use(_.post('/import', ImportEndpoint.handle.bind(ImportEndpoint)));
 
+// Initialize debug and translators
 Debug.init(process.env.DEBUG_LEVEL ? parseInt(process.env.DEBUG_LEVEL) : 1);
-Translators.init()
-.then(function () {
-	// Don't start server in test mode, since it's handled by supertest
-	if (process.env.NODE_ENV == 'test') return;
-	
-	var port = config.get('port');
-	var host = config.get('host');
-	app.listen(port, host);
-	Debug.log(`Listening on ${host}:${port}`);
-});
 
-// Replace the hardcoded port (1969) with this:
-const PORT = process.env.PORT || 1969;
-server.listen(PORT, () => {
-  console.log(`Listening on port ${PORT}`);
-});
+Translators.init().then(function () {
+	// Don't start the server if in test mode
+	if (process.env.NODE_ENV === 'test') return;
 
+	const PORT = process.env.PORT || 1969;
+
+	app.listen(PORT, () => {
+		Debug.log(`✅ Translation Server listening on port ${PORT}`);
+	});
+});
