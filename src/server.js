@@ -81,3 +81,10 @@ Translators.init()
 	app.listen(port, host);
 	Debug.log(`Listening on ${host}:${port}`);
 });
+
+// Replace the hardcoded port (1969) with this:
+const PORT = process.env.PORT || 1969;
+server.listen(PORT, () => {
+  console.log(`Listening on port ${PORT}`);
+});
+
